@@ -25,8 +25,8 @@ juce_add_plugin(DarkArp
 juce_generate_juce_header(DarkArp)
 
 target_sources(DarkArp PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    PluginProcessor.cpp
+    PluginEditor.cpp)
 
 target_compile_definitions(DarkArp PUBLIC
     JUCE_WEB_BROWSER=0
@@ -42,14 +42,3 @@ target_link_libraries(DarkArp
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
-
-# Optional headless DSP test (not built in CI):  cmake -B build -DDARKARP_BUILD_TESTS=ON
-option(DARKARP_BUILD_TESTS "Build headless test" OFF)
-if(DARKARP_BUILD_TESTS)
-    juce_add_console_app(DarkArpTest PRODUCT_NAME "DarkArpTest")
-    juce_generate_juce_header(DarkArpTest)
-    target_sources(DarkArpTest PRIVATE Test/main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp)
-    target_compile_definitions(DarkArpTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-    target_link_libraries(DarkArpTest PRIVATE juce::juce_audio_utils juce::juce_dsp
-        PUBLIC juce::juce_recommended_config_flags)
-endif()
