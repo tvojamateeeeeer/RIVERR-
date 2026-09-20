@@ -28,9 +28,11 @@ struct Voice
     float startS = 0.f, endS = 0.f;
     bool reverse = false;
     float vel = 1.f;
+    float panL = 1.f, panR = 1.f;
     int delay = 0;                 // samples until the voice starts (inside this block)
     int releaseCountdown = -1;     // samples (after start) until note-off, -1 = none
     int note = -1;                 // midi note when played without arp
+    int played = 0;
     juce::ADSR adsr;
     juce::uint64 age = 0;
 };
@@ -38,14 +40,14 @@ struct Voice
 struct ArpEvent { double when; int semis; float vel; double gateBeats; };
 struct SeqNote  { int note; float vel; };
 
-class DarkArpProcessor : public juce::AudioProcessor,
-                         public juce::ChangeBroadcaster
+class RiverrProcessor : public juce::AudioProcessor,
+                        public juce::ChangeBroadcaster
 {
 public:
     using APVTS = juce::AudioProcessorValueTreeState;
 
-    DarkArpProcessor();
-    ~DarkArpProcessor() override = default;
+    RiverrProcessor();
+    ~RiverrProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -55,7 +57,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "DarkArp"; }
+    const juce::String getName() const override { return "RIVERR"; }
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
@@ -80,8 +82,11 @@ public:
     bool loadPreset (const juce::String& name);
     void randomizeSteps();
 
+    // lanes: 0 on, 1 pitch, 2 velocity, 3 gate, 4 probability, 5 ratchet
+    int getLaneLength (int lane) const;
+    std::array<std::atomic<int>, 6> laneStep;
+
     APVTS apvts;
-    std::atomic<int> currentStep { -1 };
 
 private:
     static APVTS::ParameterLayout createLayout();
@@ -90,7 +95,7 @@ private:
 
     // audio thread
     void triggerVoice (int note, float semis, float vel, int delay, int gateSamples);
-    void renderVoices (float* L, float* R, int n);
+    void renderVoices (float* L, float* R, int n, double rateMul);
     void rebuildSequence();
     void scheduleStep (long long k, double t, double stepLen);
     void handleNoteOn (int note, float vel, int pos);
@@ -109,11 +114,13 @@ private:
     // arp state
     std::vector<int> held;
     std::array<float, 128> noteVel {};
+    std::array<int, 16> evo {};          // evolving pitch drift per pitch-lane step
     std::vector<SeqNote> seq, seqTmp;
     std::vector<ArpEvent> pending;
     long long noteCounter = 0, lastK = 0;
     bool haveLast = false, lastHostSync = false;
     double lastStepLen = 0.0, lastEndPpq = 0.0, freePpq = 0.0;
+    double wowPh1 = 0.0, wowPh2 = 0.0;
     juce::Random rng;
 
     // fx
@@ -128,9 +135,12 @@ private:
     std::atomic<float> *pGain, *pOctave, *pTune, *pAutoTune, *pReverse, *pStart, *pEnd,
                        *pAtk, *pDec, *pSus, *pRel,
                        *pArpOn, *pDir, *pOctRange, *pRate, *pGate, *pSwing, *pHumT, *pHumV, *pSteps,
+                       *pKey, *pScale, *pEvolve, *pJump, *pLayer, *pLayerLvl,
+                       *pLenPit, *pLenVel, *pLenGate, *pLenProb, *pLenRat,
+                       *pScan, *pDrift, *pSpread,
                        *pCut, *pRes, *pLfoRate, *pLfoDepth,
                        *pDlyTime, *pDlyFb, *pDlyMix, *pRevSize, *pRevDamp, *pRevMix;
-    std::array<std::atomic<float>*, 16> sOn, sPit, sVel, sProb;
+    std::array<std::atomic<float>*, 16> sOn, sPit, sVel, sGate, sProb, sRat;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkArpProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RiverrProcessor)
 };

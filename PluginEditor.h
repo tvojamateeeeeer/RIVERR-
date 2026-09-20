@@ -1,28 +1,42 @@
 #pragma once
 #include "PluginProcessor.h"
 
+// RIVERR look: pure black, hairlines, transparent white buttons, a touch of light blue.
 namespace ui
 {
-    const juce::Colour bg      { 0xff09090f };
-    const juce::Colour panel   { 0xff14121f };
-    const juce::Colour panel2  { 0xff1c1a2b };
-    const juce::Colour accent  { 0xff8a6bff };   // violet
-    const juce::Colour accent2 { 0xff3fd0c9 };   // teal
-    const juce::Colour text    { 0xffc9c5da };
-    const juce::Colour dim     { 0xff6d6a80 };
+    const juce::Colour accent { 0xffa9dcff };   // light blue
+    inline juce::Colour white (float a) { return juce::Colours::white.withAlpha (a); }
+    inline juce::Font font (float h = 10.f, float kern = 0.12f)
+    {
+        return juce::Font (juce::FontOptions (h)).withExtraKerningFactor (kern);
+    }
+
+    constexpr int kLanes = 6;
+    constexpr int kRowH[kLanes] = { 20, 60, 38, 38, 30, 30 };
+    constexpr int kRowGap = 4;
+    constexpr int kPad = 4;
+    constexpr int rowTop (int lane) { int y = kPad; for (int i = 0; i < lane; ++i) y += kRowH[i] + kRowGap; return y; }
+    constexpr int kRowsEnd = 4 + 20 + 4 + 60 + 4 + 38 + 4 + 38 + 4 + 30 + 4 + 30;   // 240
+    constexpr int kColH = kRowsEnd + 16;
 }
 
 //==============================================================================
-class DarkLnF : public juce::LookAndFeel_V4
+class RiverrLnF : public juce::LookAndFeel_V4
 {
 public:
-    DarkLnF();
+    RiverrLnF();
     void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
                            float startAngle, float endAngle, juce::Slider&) override;
     void drawLinearSlider (juce::Graphics&, int x, int y, int w, int h, float sliderPos,
                            float minPos, float maxPos, juce::Slider::SliderStyle, juce::Slider&) override;
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
+    void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool highlighted, bool down) override;
+    void drawComboBox (juce::Graphics&, int width, int height, bool isButtonDown,
+                       int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox&) override;
     juce::Slider::SliderLayout getSliderLayout (juce::Slider&) override;
+    juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
+    juce::Font getComboBoxFont (juce::ComboBox&) override;
+    juce::Font getPopupMenuFont() override;
 };
 
 //==============================================================================
@@ -61,11 +75,26 @@ private:
     juce::AudioProcessorValueTreeState::ButtonAttachment att;
 };
 
+// tiny horizontal number box used for lane lengths
+class LenBox : public juce::Slider
+{
+public:
+    LenBox (juce::AudioProcessorValueTreeState& a, const juce::String& id)
+        : juce::Slider (juce::Slider::LinearBar, juce::Slider::NoTextBox), att (a, id, *this)
+    {
+        setDoubleClickReturnValue (true, 16.0);
+        setMouseDragSensitivity (90);
+    }
+
+private:
+    juce::AudioProcessorValueTreeState::SliderAttachment att;
+};
+
 //==============================================================================
 class WaveformView : public juce::Component, private juce::Timer
 {
 public:
-    explicit WaveformView (DarkArpProcessor&);
+    explicit WaveformView (RiverrProcessor&);
     ~WaveformView() override { stopTimer(); }
 
     void paint (juce::Graphics&) override;
@@ -78,7 +107,7 @@ private:
     void timerCallback() override { repaint(); }
     float normToX (float n) const;
 
-    DarkArpProcessor& proc;
+    RiverrProcessor& proc;
     juce::RangedAudioParameter *startP, *endP;
     int dragging = 0;   // 0 none, 1 start, 2 end
     bool dragOver = false;
@@ -91,28 +120,30 @@ public:
     StepColumn (juce::AudioProcessorValueTreeState&, int index);
     void resized() override;
     void paint (juce::Graphics&) override;
-    void setPlaying (bool b) { if (b != playing) { playing = b; repaint(); } }
+    void setState (int playMask, int dimMask);
 
 private:
     int idx;
-    bool playing = false;
+    int playMask = 0, dimMask = 0;
     juce::ToggleButton on;
-    juce::Slider pit { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
-    juce::Slider vel { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
+    juce::Slider pit  { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
+    juce::Slider vel  { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
+    juce::Slider gate { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
     juce::Slider prob { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
+    juce::Slider rat  { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
     juce::AudioProcessorValueTreeState::ButtonAttachment aOn;
-    juce::AudioProcessorValueTreeState::SliderAttachment aPit, aVel, aProb;
+    juce::AudioProcessorValueTreeState::SliderAttachment aPit, aVel, aGate, aProb, aRat;
 };
 
 //==============================================================================
-class DarkArpEditor : public juce::AudioProcessorEditor,
-                      public juce::FileDragAndDropTarget,
-                      private juce::ChangeListener,
-                      private juce::Timer
+class RiverrEditor : public juce::AudioProcessorEditor,
+                     public juce::FileDragAndDropTarget,
+                     private juce::ChangeListener,
+                     private juce::Timer
 {
 public:
-    explicit DarkArpEditor (DarkArpProcessor&);
-    ~DarkArpEditor() override;
+    explicit RiverrEditor (RiverrProcessor&);
+    ~RiverrEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -138,8 +169,8 @@ private:
         return c;
     }
 
-    DarkLnF laf;
-    DarkArpProcessor& proc;
+    RiverrLnF laf;
+    RiverrProcessor& proc;
 
     WaveformView wave;
     juce::ComboBox presetBox;
@@ -149,8 +180,9 @@ private:
     juce::OwnedArray<juce::Component> owned;
     std::vector<std::pair<juce::Component*, int>> arpRow, soundRow, fxRow;
     std::vector<std::unique_ptr<StepColumn>> steps;
+    std::vector<std::unique_ptr<LenBox>> lenBoxes;
 
-    juce::Rectangle<int> arpPanel, stepPanel, soundPanel, fxPanel;
+    int yArp = 0, ySeq = 0, ySound = 0, lanesTop = 0, fxX = 0, contentW = 0;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DarkArpEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RiverrEditor)
 };

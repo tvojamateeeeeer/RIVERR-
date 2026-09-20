@@ -8,6 +8,7 @@ namespace
     constexpr int kRootNote = 60;   // FL Studio "C5" == MIDI note 60
     constexpr double kRateBeats[]  = { 1.0, 0.75, 0.5, 1.0 / 3.0, 0.375, 0.25, 1.0 / 6.0, 0.125 };
     constexpr double kDelayBeats[] = { 1.0, 0.75, 0.5, 0.25 };
+    constexpr int kLayerInt[] = { 0, 12, -12, 7, 5, 3, 10 };
 
     inline float hermite (float x, float y0, float y1, float y2, float y3)
     {
@@ -19,10 +20,39 @@ namespace
     }
 
     String stepId (int i, const char* what) { return "s" + String (i) + "_" + what; }
+
+    unsigned scaleMask (int idx)
+    {
+        auto m = [] (std::initializer_list<int> l) { unsigned r = 0; for (int i : l) r |= 1u << i; return r; };
+        switch (idx)
+        {
+            case 1:  return m ({ 0, 2, 3, 5, 7, 8, 10 });   // minor
+            case 2:  return m ({ 0, 2, 3, 5, 7, 8, 11 });   // harmonic minor
+            case 3:  return m ({ 0, 1, 3, 5, 7, 8, 10 });   // phrygian
+            case 4:  return m ({ 0, 1, 4, 5, 7, 8, 10 });   // phrygian dominant
+            case 5:  return m ({ 0, 2, 3, 5, 7, 9, 10 });   // dorian
+            case 6:  return m ({ 0, 1, 3, 5, 6, 8, 10 });   // locrian
+            case 7:  return m ({ 0, 2, 3, 7, 8 });          // hirajoshi
+            case 8:  return m ({ 0, 2, 4, 5, 7, 9, 11 });   // major
+            default: return 0xFFFu;
+        }
+    }
+
+    int quantizeToScale (int n, int key, unsigned mask)
+    {
+        for (int d = 0; d < 7; ++d)
+            for (int s : { -d, d })
+            {
+                const int m = n + s;
+                const int pc = ((m - key) % 12 + 12) % 12;
+                if (mask & (1u << pc)) return m;
+            }
+        return n;
+    }
 }
 
 //==============================================================================
-AudioProcessorValueTreeState::ParameterLayout DarkArpProcessor::createLayout()
+AudioProcessorValueTreeState::ParameterLayout RiverrProcessor::createLayout()
 {
     AudioProcessorValueTreeState::ParameterLayout L;
     auto pid = [] (const String& s) { return ParameterID (s, 1); };
@@ -60,17 +90,31 @@ AudioProcessorValueTreeState::ParameterLayout DarkArpProcessor::createLayout()
     F ("dec", "Decay", 0.01f, 4.f, 0.4f, 0.f, 0.5f, "s");
     F ("sus", "Sustain", 0.f, 1.f, 1.f);
     F ("rel", "Release", 0.01f, 8.f, 0.5f, 0.f, 1.f, "s");
+    F ("scan", "Scan", 0.f, 1.f, 0.f);
+    F ("drift", "Drift", 0.f, 1.f, 0.f);
+    F ("spread", "Spread", 0.f, 1.f, 0.f);
 
     // arp
     B ("arpOn", "Arp On", true);
     C ("dir", "Direction", { "Up", "Down", "Up-Down", "Down-Up", "Random", "As played" }, 0);
     C ("octRange", "Octaves", { "1", "2", "3", "4" }, 1);
     C ("rate", "Rate", { "1/4", "1/8.", "1/8", "1/8T", "1/16.", "1/16", "1/16T", "1/32" }, 5);
-    F ("gate", "Gate", 0.05f, 1.f, 0.6f);
+    F ("gate", "Gate", 0.05f, 4.f, 0.6f, 0.f, 0.8f, "x");
     F ("swing", "Swing", 0.f, 0.75f, 0.f);
     F ("humT", "Human Time", 0.f, 1.f, 0.f);
     F ("humV", "Human Vel", 0.f, 1.f, 0.f);
     I ("steps", "Steps", 1, 16, 16);
+    C ("key", "Key", { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0);
+    C ("scale", "Scale", { "Chromatic", "Minor", "Harm. Minor", "Phrygian", "Phryg. Dom.", "Dorian", "Locrian", "Hirajoshi", "Major" }, 0);
+    F ("evolve", "Evolve", 0.f, 1.f, 0.f);
+    F ("jump", "Octave Jump", 0.f, 1.f, 0.f);
+    C ("layer", "Layer", { "Off", "+12", "-12", "+7", "+5", "+3", "+10" }, 0);
+    F ("layerLvl", "Layer Level", 0.f, 1.f, 0.5f);
+    I ("lenPit", "Pitch Length", 1, 16, 16);
+    I ("lenVel", "Velocity Length", 1, 16, 16);
+    I ("lenGate", "Gate Length", 1, 16, 16);
+    I ("lenProb", "Probability Length", 1, 16, 16);
+    I ("lenRat", "Ratchet Length", 1, 16, 16);
 
     for (int i = 0; i < 16; ++i)
     {
@@ -78,7 +122,9 @@ AudioProcessorValueTreeState::ParameterLayout DarkArpProcessor::createLayout()
         B (stepId (i, "on"), "Step " + n + " On", true);
         I (stepId (i, "pit"), "Step " + n + " Pitch", -12, 12, 0);
         F (stepId (i, "vel"), "Step " + n + " Vel", 0.f, 1.f, 0.85f);
+        F (stepId (i, "gate"), "Step " + n + " Gate", 0.1f, 1.f, 1.f);
         F (stepId (i, "prob"), "Step " + n + " Prob", 0.f, 1.f, 1.f);
+        I (stepId (i, "rat"), "Step " + n + " Ratchet", 1, 4, 1);
     }
 
     // fx
@@ -97,7 +143,7 @@ AudioProcessorValueTreeState::ParameterLayout DarkArpProcessor::createLayout()
 }
 
 //==============================================================================
-DarkArpProcessor::DarkArpProcessor()
+RiverrProcessor::RiverrProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "STATE", createLayout())
 {
@@ -110,6 +156,11 @@ DarkArpProcessor::DarkArpProcessor()
     pArpOn = P ("arpOn");     pDir = P ("dir");         pOctRange = P ("octRange");
     pRate = P ("rate");       pGate = P ("gate");       pSwing = P ("swing");
     pHumT = P ("humT");       pHumV = P ("humV");       pSteps = P ("steps");
+    pKey = P ("key");         pScale = P ("scale");     pEvolve = P ("evolve");  pJump = P ("jump");
+    pLayer = P ("layer");     pLayerLvl = P ("layerLvl");
+    pLenPit = P ("lenPit");   pLenVel = P ("lenVel");   pLenGate = P ("lenGate");
+    pLenProb = P ("lenProb"); pLenRat = P ("lenRat");
+    pScan = P ("scan");       pDrift = P ("drift");     pSpread = P ("spread");
     pCut = P ("cut");         pRes = P ("res");         pLfoRate = P ("lfoRate"); pLfoDepth = P ("lfoDepth");
     pDlyTime = P ("dlyTime"); pDlyFb = P ("dlyFb");     pDlyMix = P ("dlyMix");
     pRevSize = P ("revSize"); pRevDamp = P ("revDamp"); pRevMix = P ("revMix");
@@ -119,18 +170,28 @@ DarkArpProcessor::DarkArpProcessor()
         sOn[(size_t) i]   = P (stepId (i, "on"));
         sPit[(size_t) i]  = P (stepId (i, "pit"));
         sVel[(size_t) i]  = P (stepId (i, "vel"));
+        sGate[(size_t) i] = P (stepId (i, "gate"));
         sProb[(size_t) i] = P (stepId (i, "prob"));
+        sRat[(size_t) i]  = P (stepId (i, "rat"));
     }
+
+    for (auto& s : laneStep) s.store (-1);
 }
 
-AudioProcessorEditor* DarkArpProcessor::createEditor() { return new DarkArpEditor (*this); }
+AudioProcessorEditor* RiverrProcessor::createEditor() { return new RiverrEditor (*this); }
 
-bool DarkArpProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool RiverrProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     return layouts.getMainOutputChannelSet() == AudioChannelSet::stereo();
 }
 
-void DarkArpProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+int RiverrProcessor::getLaneLength (int lane) const
+{
+    std::atomic<float>* p[] = { pSteps, pLenPit, pLenVel, pLenGate, pLenProb, pLenRat };
+    return jlimit (1, 16, (int) p[jlimit (0, 5, lane)]->load());
+}
+
+void RiverrProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     fs = sampleRate;
 
@@ -150,17 +211,19 @@ void DarkArpProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     for (auto& v : voices) { v.active = false; v.smp.reset(); }
     held.clear();  held.reserve (128);
     seq.reserve (2048);  seqTmp.reserve (2048);
-    pending.reserve (256);
+    pending.clear();  pending.reserve (256);
+    evo.fill (0);
     haveLast = false;
     noteCounter = 0;
+    freePpq = 0.0;
 }
 
 //==============================================================================
-void DarkArpProcessor::handleNoteOn (int note, float vel, int pos)
+void RiverrProcessor::handleNoteOn (int note, float vel, int pos)
 {
     if (pArpOn->load() > 0.5f)
     {
-        if (held.empty()) { noteCounter = 0; haveLast = false; }
+        if (held.empty()) { noteCounter = 0; haveLast = false; evo.fill (0); }
         if (std::find (held.begin(), held.end(), note) == held.end())
             held.push_back (note);
         noteVel[(size_t) note] = vel;
@@ -171,7 +234,7 @@ void DarkArpProcessor::handleNoteOn (int note, float vel, int pos)
     }
 }
 
-void DarkArpProcessor::handleNoteOff (int note, int pos)
+void RiverrProcessor::handleNoteOff (int note, int pos)
 {
     held.erase (std::remove (held.begin(), held.end(), note), held.end());
 
@@ -180,7 +243,7 @@ void DarkArpProcessor::handleNoteOff (int note, int pos)
             v.releaseCountdown = jmax (0, pos - v.delay);
 }
 
-void DarkArpProcessor::triggerVoice (int note, float semis, float vel, int delay, int gateSamples)
+void RiverrProcessor::triggerVoice (int note, float semis, float vel, int delay, int gateSamples)
 {
     if (audioSample == nullptr)
         return;
@@ -205,17 +268,33 @@ void DarkArpProcessor::triggerVoice (int note, float semis, float vel, int delay
     v->startS = st * (float) len;
     v->endS = jmax (v->startS + 16.f, jmin ((float) (len - 1), en * (float) len));
     v->reverse = pReverse->load() > 0.5f;
-    v->pos = v->reverse ? (double) v->endS - 1.0 : (double) v->startS;
+
+    // "scan": every hit starts at a slightly different place in the sound
+    const float scan = pScan->load();
+    const float off = scan > 0.f ? rng.nextFloat() * scan * 0.5f * (v->endS - v->startS) : 0.f;
+    v->pos = v->reverse ? (double) v->endS - 1.0 - (double) off : (double) v->startS + (double) off;
+
+    // "drift": tiny random detune per hit (global wow is applied while rendering)
+    const float drift = pDrift->load();
+    const double cents = drift > 0.f ? (double) ((rng.nextFloat() * 2.f - 1.f) * drift * 18.f) : 0.0;
 
     const float total = semis + 12.f * pOctave->load() + pTune->load()
                         + (pAutoTune->load() > 0.5f ? s.rootShift : 0.f);
-    v->rate = std::pow (2.0, (double) total / 12.0) * s.sr / fs;
+    v->rate = std::pow (2.0, ((double) total + cents / 100.0) / 12.0) * s.sr / fs;
+
+    // "spread": random pan per hit (equal power)
+    const float sp = pSpread->load();
+    const float pan = sp > 0.f ? (rng.nextFloat() * 2.f - 1.f) * sp : 0.f;
+    const float th = (pan + 1.f) * MathConstants<float>::pi * 0.25f;
+    v->panL = std::cos (th) * 1.41421356f;
+    v->panR = std::sin (th) * 1.41421356f;
 
     v->smp = audioSample;
     v->vel = vel;
     v->delay = jmax (0, delay);
     v->releaseCountdown = gateSamples > 0 ? gateSamples : -1;
     v->note = note;
+    v->played = 0;
 
     v->adsr.setSampleRate (fs);
     v->adsr.setParameters ({ pAtk->load(), pDec->load(), pSus->load(), pRel->load() });
@@ -224,7 +303,7 @@ void DarkArpProcessor::triggerVoice (int note, float semis, float vel, int delay
     v->age = ++ageCounter;
 }
 
-void DarkArpProcessor::renderVoices (float* L, float* R, int n)
+void RiverrProcessor::renderVoices (float* L, float* R, int n, double rateMul)
 {
     for (auto& v : voices)
     {
@@ -258,13 +337,13 @@ void DarkArpProcessor::renderVoices (float* L, float* R, int n)
 
             const float dist = v.reverse ? (float) (v.pos - (double) v.startS)
                                          : (float) ((double) v.endS - v.pos);
-            const float fade = jmin (1.f, dist / 128.f);
+            const float fade = jmin (1.f, dist / 128.f) * jmin (1.f, (float) (++v.played) / 12.f);
             const float g = env * v.vel * fade;
 
-            L[i] += sl * g;
-            R[i] += sr * g;
+            L[i] += sl * g * v.panL;
+            R[i] += sr * g * v.panR;
 
-            v.pos += v.reverse ? -v.rate : v.rate;
+            v.pos += (v.reverse ? -v.rate : v.rate) * rateMul;
             if (v.pos < (double) v.startS || v.pos >= (double) v.endS)
             {
                 v.active = false; v.smp.reset(); break;
@@ -274,7 +353,7 @@ void DarkArpProcessor::renderVoices (float* L, float* R, int n)
 }
 
 //==============================================================================
-void DarkArpProcessor::rebuildSequence()
+void RiverrProcessor::rebuildSequence()
 {
     const int dir = (int) pDir->load();
     const int octs = (int) pOctRange->load() + 1;
@@ -314,12 +393,17 @@ void DarkArpProcessor::rebuildSequence()
     }
 }
 
-void DarkArpProcessor::scheduleStep (long long k, double t, double stepLen)
+void RiverrProcessor::scheduleStep (long long k, double t, double stepLen)
 {
     if (seq.empty()) return;
 
-    const int steps = jlimit (1, 16, (int) pSteps->load());
-    const int p = (int) (((k % steps) + steps) % steps);
+    auto idx = [k] (int len) { len = jlimit (1, 16, len); return (int) (((k % len) + len) % len); };
+    const int iOn   = idx ((int) pSteps->load());
+    const int iPit  = idx ((int) pLenPit->load());
+    const int iVel  = idx ((int) pLenVel->load());
+    const int iGate = idx ((int) pLenGate->load());
+    const int iProb = idx ((int) pLenProb->load());
+    const int iRat  = idx ((int) pLenRat->load());
 
     SeqNote sn;
     if ((int) pDir->load() == 4)
@@ -328,27 +412,58 @@ void DarkArpProcessor::scheduleStep (long long k, double t, double stepLen)
         sn = seq[(size_t) (noteCounter % (long long) seq.size())];
     ++noteCounter;
 
-    currentStep.store (p);
+    laneStep[0].store (iOn);  laneStep[1].store (iPit);  laneStep[2].store (iVel);
+    laneStep[3].store (iGate); laneStep[4].store (iProb); laneStep[5].store (iRat);
 
-    if (sOn[(size_t) p]->load() < 0.5f) return;
-    if (rng.nextFloat() > sProb[(size_t) p]->load()) return;
+    // evolve: the pitch lane slowly wanders (random walk that pulls back to the origin)
+    const float evolve = pEvolve->load();
+    if (evolve > 0.f && rng.nextFloat() < evolve * 0.45f)
+    {
+        int d = rng.nextBool() ? 1 : -1;
+        if (rng.nextFloat() < 0.25f) d *= 2;
+        int& e = evo[(size_t) iPit];
+        e = jlimit (-12, 12, e + d);
+        if (std::abs (e) > 6) e -= (e > 0 ? 1 : -1);
+    }
+
+    if (sOn[(size_t) iOn]->load() < 0.5f) return;
+    if (rng.nextFloat() > sProb[(size_t) iProb]->load()) return;
+
+    int note = sn.note + (int) sPit[(size_t) iPit]->load() + evo[(size_t) iPit];
+    if (rng.nextFloat() < pJump->load() * 0.5f)
+        note += (rng.nextFloat() < 0.65f ? 12 : -12);
+    note = jlimit (0, 127, note);
+
+    const unsigned mask = scaleMask ((int) pScale->load());
+    if (mask != 0xFFFu)
+        note = quantizeToScale (note, (int) pKey->load(), mask);
 
     double delay = 0.0;
     if ((k & 1) != 0) delay += (double) pSwing->load() * stepLen;
     delay += (double) rng.nextFloat() * (double) pHumT->load() * 0.25 * stepLen;
 
-    float vel = sVel[(size_t) p]->load() * (0.35f + 0.65f * sn.vel);
+    float vel = sVel[(size_t) iVel]->load() * (0.35f + 0.65f * sn.vel);
     vel *= 1.f - rng.nextFloat() * pHumV->load() * 0.5f;
 
-    if (pending.size() < 250)
-        pending.push_back ({ t + delay,
-                             sn.note - kRootNote + (int) sPit[(size_t) p]->load(),
-                             jlimit (0.f, 1.f, vel),
-                             (double) pGate->load() * stepLen });
+    const double gateBeats = (double) pGate->load() * (double) sGate[(size_t) iGate]->load() * stepLen;
+    const int rat = jlimit (1, 4, (int) sRat[(size_t) iRat]->load());
+    const int layer = jlimit (0, 6, (int) pLayer->load());
+    const float layerLvl = pLayerLvl->load();
+
+    for (int r = 0; r < rat; ++r)
+    {
+        const double when = t + delay + (double) r * stepLen / (double) rat;
+        const float v = jlimit (0.f, 1.f, vel * (1.f - 0.14f * (float) r));
+
+        if (pending.size() < 250)
+            pending.push_back ({ when, note - kRootNote, v, gateBeats / (double) rat });
+        if (layer > 0 && pending.size() < 250)
+            pending.push_back ({ when + 0.0005, note - kRootNote + kLayerInt[layer], v * layerLvl, gateBeats / (double) rat });
+    }
 }
 
 //==============================================================================
-void DarkArpProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midi)
+void RiverrProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midi)
 {
     ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
@@ -372,6 +487,8 @@ void DarkArpProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& mid
         }
     }
     if (bpm < 20.0) bpm = 120.0;
+
+    if (pEvolve->load() <= 0.f) evo.fill (0);
 
     // ---- MIDI ----
     for (const auto meta : midi)
@@ -403,7 +520,7 @@ void DarkArpProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& mid
         if (held.empty())
         {
             haveLast = false;
-            if (pending.empty()) currentStep.store (-1);
+            if (pending.empty()) for (auto& s : laneStep) s.store (-1);
         }
         else
         {
@@ -450,10 +567,23 @@ void DarkArpProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& mid
 
     freePpq = hostSync ? endPpq : freePpq + (double) n * beatsPerSample;
 
+    // ---- tape-ish wow (only when DRIFT > 0) ----
+    double wow = 1.0;
+    {
+        const float dr = pDrift->load();
+        if (dr > 0.f)
+        {
+            wowPh1 += 0.31 * (double) n / fs;  wowPh1 -= std::floor (wowPh1);
+            wowPh2 += 1.13 * (double) n / fs;  wowPh2 -= std::floor (wowPh2);
+            wow = 1.0 + (double) dr * (0.004 * std::sin (MathConstants<double>::twoPi * wowPh1)
+                                       + 0.0018 * std::sin (MathConstants<double>::twoPi * wowPh2));
+        }
+    }
+
     // ---- voices ----
     float* L = buffer.getWritePointer (0);
     float* R = buffer.getWritePointer (1);
-    renderVoices (L, R, n);
+    renderVoices (L, R, n, wow);
 
     // ---- filter + LFO (block of 32 samples) ----
     {
@@ -527,16 +657,28 @@ void DarkArpProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& mid
     }
 
     buffer.applyGain (Decibels::decibelsToGain (pGain->load()));
+
+    // gentle safety limiter: untouched below 0.8, soft knee up to 1.0
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        float* d = buffer.getWritePointer (ch);
+        for (int i = 0; i < n; ++i)
+        {
+            const float a = std::abs (d[i]);
+            if (a > 0.8f)
+                d[i] = std::copysign (0.8f + 0.2f * std::tanh ((a - 0.8f) / 0.2f), d[i]);
+        }
+    }
 }
 
 //==============================================================================
-std::shared_ptr<const SampleData> DarkArpProcessor::getSample() const
+std::shared_ptr<const SampleData> RiverrProcessor::getSample() const
 {
     const SpinLock::ScopedLockType l (sampleLock);
     return sharedSample;
 }
 
-bool DarkArpProcessor::loadSample (const File& f)
+bool RiverrProcessor::loadSample (const File& f)
 {
     AudioFormatManager fm;
     fm.registerBasicFormats();
@@ -613,7 +755,7 @@ bool DarkArpProcessor::loadSample (const File& f)
 }
 
 //==============================================================================
-void DarkArpProcessor::restoreSampleFromState()
+void RiverrProcessor::restoreSampleFromState()
 {
     const String path = apvts.state.getProperty ("samplePath").toString();
     if (path.isEmpty()) return;
@@ -624,13 +766,13 @@ void DarkArpProcessor::restoreSampleFromState()
         loadSample (f);
 }
 
-void DarkArpProcessor::getStateInformation (MemoryBlock& destData)
+void RiverrProcessor::getStateInformation (MemoryBlock& destData)
 {
     if (auto xml = apvts.copyState().createXml())
         copyXmlToBinary (*xml, destData);
 }
 
-void DarkArpProcessor::setStateInformation (const void* data, int size)
+void RiverrProcessor::setStateInformation (const void* data, int size)
 {
     if (auto xml = getXmlFromBinary (data, size))
         if (xml->hasTagName (apvts.state.getType()))
@@ -642,33 +784,33 @@ void DarkArpProcessor::setStateInformation (const void* data, int size)
 }
 
 //==============================================================================
-File DarkArpProcessor::getPresetDir()
+File RiverrProcessor::getPresetDir()
 {
-    auto d = File::getSpecialLocation (File::userDocumentsDirectory).getChildFile ("DarkArp").getChildFile ("Presets");
+    auto d = File::getSpecialLocation (File::userDocumentsDirectory).getChildFile ("RIVERR").getChildFile ("Presets");
     d.createDirectory();
     return d;
 }
 
-StringArray DarkArpProcessor::listPresets() const
+StringArray RiverrProcessor::listPresets() const
 {
     StringArray names;
-    for (auto& f : getPresetDir().findChildFiles (File::findFiles, false, "*.darkarp"))
+    for (auto& f : getPresetDir().findChildFiles (File::findFiles, false, "*.riverr"))
         names.add (f.getFileNameWithoutExtension());
     names.sort (true);
     return names;
 }
 
-bool DarkArpProcessor::savePreset (const String& name)
+bool RiverrProcessor::savePreset (const String& name)
 {
-    const auto f = getPresetDir().getChildFile (File::createLegalFileName (name) + ".darkarp");
+    const auto f = getPresetDir().getChildFile (File::createLegalFileName (name) + ".riverr");
     if (auto xml = apvts.copyState().createXml())
         return xml->writeTo (f);
     return false;
 }
 
-bool DarkArpProcessor::loadPreset (const String& name)
+bool RiverrProcessor::loadPreset (const String& name)
 {
-    const auto f = getPresetDir().getChildFile (name + ".darkarp");
+    const auto f = getPresetDir().getChildFile (name + ".riverr");
     if (auto xml = XmlDocument::parse (f))
         if (xml->hasTagName (apvts.state.getType()))
         {
@@ -680,7 +822,7 @@ bool DarkArpProcessor::loadPreset (const String& name)
     return false;
 }
 
-void DarkArpProcessor::setParamValue (const String& id, float realValue)
+void RiverrProcessor::setParamValue (const String& id, float realValue)
 {
     if (auto* p = apvts.getParameter (id))
     {
@@ -690,7 +832,7 @@ void DarkArpProcessor::setParamValue (const String& id, float realValue)
     }
 }
 
-void DarkArpProcessor::randomizeSteps()
+void RiverrProcessor::randomizeSteps()
 {
     static const int pool[] = { 0, 0, 0, 3, 7, 10, 12, -5, -12, 5, 8, -2 };
     auto& r = Random::getSystemRandom();
@@ -700,9 +842,16 @@ void DarkArpProcessor::randomizeSteps()
         setParamValue (stepId (i, "on"), r.nextFloat() < 0.8f ? 1.f : 0.f);
         setParamValue (stepId (i, "pit"), (float) pool[r.nextInt ((int) (sizeof (pool) / sizeof (int)))]);
         setParamValue (stepId (i, "vel"), 0.45f + 0.55f * r.nextFloat());
+        setParamValue (stepId (i, "gate"), 0.35f + 0.65f * r.nextFloat());
         setParamValue (stepId (i, "prob"), r.nextFloat() < 0.15f ? 0.6f : 1.f);
+        const float rr = r.nextFloat();
+        setParamValue (stepId (i, "rat"), rr < 0.8f ? 1.f : (rr < 0.95f ? 2.f : 3.f));
     }
+
+    // polymeter: lanes get different lengths so the pattern takes ages to repeat
+    for (const char* id : { "lenPit", "lenVel", "lenGate", "lenRat" })
+        setParamValue (id, r.nextFloat() < 0.5f ? (float) (3 + r.nextInt (13)) : 16.f);
 }
 
 //==============================================================================
-AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new DarkArpProcessor(); }
+AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new RiverrProcessor(); }

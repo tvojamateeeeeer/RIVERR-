@@ -4,7 +4,7 @@ using namespace juce;
 
 namespace
 {
-    constexpr int kW = 1280, kH = 700;
+    constexpr int kW = 1280, kH = 712;
 
     String stepId (int i, const char* what) { return "s" + String (i) + "_" + what; }
 
@@ -15,87 +15,63 @@ namespace
 }
 
 //==============================================================================
-DarkLnF::DarkLnF()
+RiverrLnF::RiverrLnF()
 {
-    setColour (ResizableWindow::backgroundColourId, ui::bg);
-    setColour (Label::textColourId, ui::text);
-    setColour (ComboBox::backgroundColourId, ui::panel2);
-    setColour (ComboBox::textColourId, ui::text);
+    const Colour popup (0xff0a0a0a);
+    setColour (ResizableWindow::backgroundColourId, Colours::black);
+    setColour (Label::textColourId, ui::white (0.6f));
+    setColour (ComboBox::backgroundColourId, Colours::transparentBlack);
+    setColour (ComboBox::textColourId, ui::white (0.9f));
     setColour (ComboBox::outlineColourId, Colours::transparentBlack);
-    setColour (ComboBox::arrowColourId, ui::accent);
-    setColour (PopupMenu::backgroundColourId, ui::panel);
-    setColour (PopupMenu::textColourId, ui::text);
-    setColour (PopupMenu::highlightedBackgroundColourId, ui::accent.withAlpha (0.35f));
+    setColour (ComboBox::arrowColourId, ui::white (0.6f));
+    setColour (PopupMenu::backgroundColourId, popup);
+    setColour (PopupMenu::textColourId, ui::white (0.85f));
+    setColour (PopupMenu::highlightedBackgroundColourId, ui::white (0.12f));
     setColour (PopupMenu::highlightedTextColourId, Colours::white);
-    setColour (Slider::textBoxTextColourId, ui::dim);
+    setColour (Slider::textBoxTextColourId, ui::white (0.5f));
     setColour (Slider::textBoxOutlineColourId, Colours::transparentBlack);
     setColour (Slider::textBoxBackgroundColourId, Colours::transparentBlack);
-    setColour (TextButton::buttonColourId, ui::panel2);
-    setColour (TextButton::textColourOffId, ui::text);
-    setColour (AlertWindow::backgroundColourId, ui::panel);
-    setColour (AlertWindow::textColourId, ui::text);
-    setColour (TextEditor::backgroundColourId, ui::bg);
-    setColour (TextEditor::textColourId, ui::text);
+    setColour (TextButton::buttonColourId, Colours::transparentBlack);
+    setColour (TextButton::textColourOffId, ui::white (0.85f));
+    setColour (TextButton::textColourOnId, Colours::white);
+    setColour (AlertWindow::backgroundColourId, popup);
+    setColour (AlertWindow::textColourId, ui::white (0.85f));
+    setColour (TextEditor::backgroundColourId, Colours::black);
+    setColour (TextEditor::textColourId, Colours::white);
+    setColour (TextEditor::outlineColourId, ui::white (0.3f));
+    setColour (TextEditor::focusedOutlineColourId, ui::accent);
+    setColour (TextEditor::highlightColourId, ui::accent.withAlpha (0.35f));
+    setColour (TooltipWindow::backgroundColourId, popup);
+    setColour (TooltipWindow::textColourId, Colours::white);
+    setColour (TooltipWindow::outlineColourId, ui::white (0.3f));
 }
 
-void DarkLnF::drawRotarySlider (Graphics& g, int x, int y, int w, int h, float pos,
-                                float startAngle, float endAngle, Slider& s)
+void RiverrLnF::drawRotarySlider (Graphics& g, int x, int y, int w, int h, float pos,
+                                  float startAngle, float endAngle, Slider& s)
 {
-    auto b = Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced (3.f);
-    const float d = jmin (b.getWidth(), b.getHeight());
+    auto b = Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced (5.f);
+    const float r = jmin (b.getWidth(), b.getHeight()) * 0.5f;
     const auto c = b.getCentre();
-    const float r = d * 0.5f;
     const float angle = startAngle + pos * (endAngle - startAngle);
     const bool bipolar = s.getMinimum() < 0.0 && s.getMaximum() > 0.0;
 
     Path track;
-    track.addCentredArc (c.x, c.y, r - 3.f, r - 3.f, 0.f, startAngle, endAngle, true);
-    g.setColour (Colour (0xff272438));
-    g.strokePath (track, PathStrokeType (3.f, PathStrokeType::curved, PathStrokeType::rounded));
+    track.addCentredArc (c.x, c.y, r, r, 0.f, startAngle, endAngle, true);
+    g.setColour (ui::white (0.16f));
+    g.strokePath (track, PathStrokeType (1.2f));
 
     const float zeroAngle = bipolar ? startAngle + (float) s.valueToProportionOfLength (0.0) * (endAngle - startAngle)
                                     : startAngle;
     Path val;
-    val.addCentredArc (c.x, c.y, r - 3.f, r - 3.f, 0.f, jmin (zeroAngle, angle), jmax (zeroAngle, angle), true);
-    g.setColour (s.isEnabled() ? ui::accent : ui::dim);
-    g.strokePath (val, PathStrokeType (3.f, PathStrokeType::curved, PathStrokeType::rounded));
+    val.addCentredArc (c.x, c.y, r, r, 0.f, jmin (zeroAngle, angle), jmax (zeroAngle, angle), true);
+    g.setColour (ui::white (0.92f));
+    g.strokePath (val, PathStrokeType (1.6f));
 
-    g.setColour (ui::panel2);
-    g.fillEllipse (c.x - r * 0.55f, c.y - r * 0.55f, r * 1.1f, r * 1.1f);
-
-    Path p;
-    p.addRoundedRectangle (-1.5f, -r * 0.55f, 3.f, r * 0.42f, 1.f);
-    g.setColour (ui::text);
-    g.fillPath (p, AffineTransform::rotation (angle).translated (c.x, c.y));
+    g.setColour (ui::accent);
+    g.fillEllipse (c.x + std::sin (angle) * r - 2.2f, c.y - std::cos (angle) * r - 2.2f, 4.4f, 4.4f);
 }
 
-void DarkLnF::drawLinearSlider (Graphics& g, int x, int y, int w, int h, float,
-                                float minPos, float maxPos, Slider::SliderStyle style, Slider& s)
-{
-    if (style != Slider::LinearVertical)
-    {
-        LookAndFeel_V4::drawLinearSlider (g, x, y, w, h, 0.f, minPos, maxPos, style, s);
-        return;
-    }
-
-    auto b = Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced ((float) w * 0.25f, 1.f);
-    g.setColour (Colour (0xff1e1c2c));
-    g.fillRoundedRectangle (b, 3.f);
-
-    const float prop = (float) s.valueToProportionOfLength (s.getValue());
-    const bool bipolar = s.getMinimum() < 0.0;
-    const float yv = b.getBottom() - prop * b.getHeight();
-    const float y0 = bipolar ? b.getBottom() - (float) s.valueToProportionOfLength (0.0) * b.getHeight()
-                             : b.getBottom();
-
-    g.setColour (s.isEnabled() ? ui::accent2.withAlpha (0.85f) : ui::dim);
-    g.fillRect (b.getX(), jmin (yv, y0), b.getWidth(), jmax (1.f, std::abs (yv - y0)));
-
-    g.setColour (Colours::white.withAlpha (0.9f));
-    g.fillRect (b.getX() - 1.f, yv - 1.5f, b.getWidth() + 2.f, 3.f);
-}
-
-Slider::SliderLayout DarkLnF::getSliderLayout (Slider& s)
+Slider::SliderLayout RiverrLnF::getSliderLayout (Slider& s)
 {
     if (s.getSliderStyle() == Slider::LinearVertical)
     {
@@ -106,41 +82,119 @@ Slider::SliderLayout DarkLnF::getSliderLayout (Slider& s)
     return LookAndFeel_V4::getSliderLayout (s);
 }
 
-void DarkLnF::drawToggleButton (Graphics& g, ToggleButton& btn, bool highlighted, bool)
+void RiverrLnF::drawLinearSlider (Graphics& g, int x, int y, int w, int h, float,
+                                  float minPos, float maxPos, Slider::SliderStyle style, Slider& s)
+{
+    if (style == Slider::LinearBar)
+    {
+        auto b = Rectangle<float> ((float) x, (float) y, (float) w, (float) h);
+        g.setColour (ui::white (0.28f));
+        g.drawLine (b.getX(), b.getBottom() - 0.5f, b.getRight(), b.getBottom() - 0.5f, 1.f);
+        g.setColour (ui::white (0.9f));
+        g.setFont (ui::font (10.5f, 0.05f));
+        g.drawText (s.getTextFromValue (s.getValue()), b, Justification::centred);
+        return;
+    }
+
+    if (style != Slider::LinearVertical)
+    {
+        LookAndFeel_V4::drawLinearSlider (g, x, y, w, h, 0.f, minPos, maxPos, style, s);
+        return;
+    }
+
+    const float bw = jmin ((float) w - 8.f, 18.f);
+    auto b = Rectangle<float> ((float) x + ((float) w - bw) * 0.5f, (float) y, bw, (float) h);
+    g.setColour (ui::white (0.05f));
+    g.fillRect (b);
+
+    const float prop = (float) s.valueToProportionOfLength (s.getValue());
+    const bool bipolar = s.getMinimum() < 0.0;
+    const float yv = b.getBottom() - prop * b.getHeight();
+    const float y0 = bipolar ? b.getBottom() - (float) s.valueToProportionOfLength (0.0) * b.getHeight()
+                             : b.getBottom();
+
+    const bool blue = (bool) s.getProperties().getWithDefault ("accent", false);
+    const Colour c = blue ? ui::accent : ui::white (0.9f);
+
+    g.setColour (c.withAlpha (0.45f));
+    g.fillRect (b.getX(), jmin (yv, y0), b.getWidth(), jmax (1.f, std::abs (yv - y0)));
+    g.setColour (c);
+    g.fillRect (b.getX(), yv - 1.f, b.getWidth(), 2.f);
+
+    if (bipolar)
+    {
+        g.setColour (ui::white (0.3f));
+        g.drawHorizontalLine ((int) y0, b.getX() - 3.f, b.getRight() + 3.f);
+    }
+}
+
+void RiverrLnF::drawToggleButton (Graphics& g, ToggleButton& btn, bool highlighted, bool)
 {
     auto b = btn.getLocalBounds().toFloat().reduced (1.5f);
     const bool on = btn.getToggleState();
 
-    g.setColour (on ? ui::accent.withAlpha (0.92f) : Colour (0xff211f30));
-    g.fillRoundedRectangle (b, 5.f);
-    if (highlighted)
+    if (btn.getButtonText().isEmpty())
     {
-        g.setColour (Colours::white.withAlpha (0.08f));
-        g.fillRoundedRectangle (b, 5.f);
+        g.setColour (ui::white (on ? 0.9f : (highlighted ? 0.45f : 0.22f)));
+        if (on) g.fillRoundedRectangle (b, 2.f);
+        else    g.drawRoundedRectangle (b, 2.f, 1.f);
+        return;
     }
 
-    if (btn.getButtonText().isNotEmpty())
+    g.setColour (ui::white (on ? 0.9f : (highlighted ? 0.55f : 0.28f)));
+    g.drawRoundedRectangle (b, 3.f, 1.f);
+    g.setColour (ui::white (on ? 1.f : 0.55f));
+    g.setFont (ui::font (10.5f));
+    g.drawText (btn.getButtonText(), b, Justification::centred);
+    if (on)
     {
-        g.setColour (on ? Colours::black : ui::text);
-        g.setFont (11.5f);
-        g.drawText (btn.getButtonText(), b, Justification::centred);
+        g.setColour (ui::accent);
+        g.fillRect (b.getCentreX() - 8.f, b.getBottom() - 3.f, 16.f, 1.5f);
     }
 }
+
+void RiverrLnF::drawButtonBackground (Graphics& g, Button& b, const Colour&, bool highlighted, bool down)
+{
+    auto r = b.getLocalBounds().toFloat().reduced (0.5f);
+    if (down)
+    {
+        g.setColour (ui::white (0.08f));
+        g.fillRoundedRectangle (r, 3.f);
+    }
+    g.setColour (ui::white (down ? 0.8f : (highlighted ? 0.55f : 0.28f)));
+    g.drawRoundedRectangle (r, 3.f, 1.f);
+}
+
+void RiverrLnF::drawComboBox (Graphics& g, int width, int height, bool, int, int, int, int, ComboBox& box)
+{
+    g.setColour (ui::white (box.isPopupActive() ? 0.65f : 0.28f));
+    g.drawHorizontalLine (height - 1, 0.f, (float) width);
+
+    Path p;
+    const float cx = (float) width - 9.f, cy = (float) height * 0.5f + 1.f;
+    p.addTriangle (cx - 3.5f, cy - 2.f, cx + 3.5f, cy - 2.f, cx, cy + 2.f);
+    g.setColour (ui::white (0.6f));
+    g.fillPath (p);
+}
+
+Font RiverrLnF::getTextButtonFont (TextButton&, int) { return ui::font (10.5f); }
+Font RiverrLnF::getComboBoxFont (ComboBox&)          { return ui::font (11.f, 0.05f); }
+Font RiverrLnF::getPopupMenuFont()                   { return ui::font (11.f, 0.05f); }
 
 //==============================================================================
 Knob::Knob (AudioProcessorValueTreeState& a, const String& id, const String& text, const String& suffix)
 {
     label.setText (text, dontSendNotification);
     label.setJustificationType (Justification::centred);
-    label.setFont (Font (FontOptions (11.f)));
-    label.setColour (Label::textColourId, ui::text);
+    label.setFont (ui::font (9.5f, 0.15f));
+    label.setColour (Label::textColourId, ui::white (0.6f));
     addAndMakeVisible (label);
 
-    slider.setColour (Slider::textBoxTextColourId, ui::dim);
+    slider.setColour (Slider::textBoxTextColourId, ui::white (0.5f));
     slider.setColour (Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider.setColour (Slider::textBoxOutlineColourId, Colours::transparentBlack);
     slider.setColour (Slider::textBoxHighlightColourId, ui::accent.withAlpha (0.4f));
-    slider.setTextBoxStyle (Slider::TextBoxBelow, false, 56, 15);
+    slider.setTextBoxStyle (Slider::TextBoxBelow, false, 50, 15);
     addAndMakeVisible (slider);
     att = std::make_unique<AudioProcessorValueTreeState::SliderAttachment> (a, id, slider);
 
@@ -154,13 +208,13 @@ Knob::Knob (AudioProcessorValueTreeState& a, const String& id, const String& tex
         slider.textFromValueFunction = [isInt, isPercent, suffix] (double v)
         {
             String t;
-            if (isInt)                    t = String (roundToInt (v));
-            else if (isPercent)           t = String (roundToInt (v * 100.0)) + "%";
-            else if (suffix == "s" && v < 1.0) return String (roundToInt (v * 1000.0)) + " ms";
-            else if (std::abs (v) >= 1000.0) t = String (roundToInt (v));
-            else if (std::abs (v) >= 100.0)  t = String (v, 0);
-            else if (std::abs (v) >= 10.0)   t = String (v, 1);
-            else                             t = String (v, 2);
+            if (isInt)                                   t = String (roundToInt (v));
+            else if (isPercent)                          t = String (roundToInt (v * 100.0)) + "%";
+            else if (suffix == "s" && v < 1.0)           return String (roundToInt (v * 1000.0)) + " ms";
+            else if (std::abs (v) >= 1000.0)             t = String (roundToInt (v));
+            else if (std::abs (v) >= 100.0)              t = String (v, 0);
+            else if (std::abs (v) >= 10.0)               t = String (v, 1);
+            else                                         t = String (v, 2);
             return suffix.isEmpty() ? t : t + " " + suffix;
         };
         slider.valueFromTextFunction = [isPercent] (const String& t)
@@ -183,7 +237,8 @@ Combo::Combo (AudioProcessorValueTreeState& a, const String& id, const String& t
 {
     label.setText (text, dontSendNotification);
     label.setJustificationType (Justification::centred);
-    label.setFont (Font (FontOptions (11.f)));
+    label.setFont (ui::font (9.5f, 0.15f));
+    label.setColour (Label::textColourId, ui::white (0.6f));
     addAndMakeVisible (label);
 
     if (auto* p = dynamic_cast<AudioParameterChoice*> (a.getParameter (id)))
@@ -197,11 +252,11 @@ void Combo::resized()
     auto b = getLocalBounds();
     label.setBounds (b.removeFromTop (16));
     b.removeFromTop (4);
-    box.setBounds (b.removeFromTop (28));
+    box.setBounds (b.removeFromTop (26));
 }
 
 //==============================================================================
-WaveformView::WaveformView (DarkArpProcessor& p) : proc (p)
+WaveformView::WaveformView (RiverrProcessor& p) : proc (p)
 {
     startP = p.apvts.getParameter ("start");
     endP = p.apvts.getParameter ("end");
@@ -210,75 +265,65 @@ WaveformView::WaveformView (DarkArpProcessor& p) : proc (p)
 
 float WaveformView::normToX (float n) const
 {
-    return 6.f + n * ((float) getWidth() - 12.f);
+    return 8.f + n * ((float) getWidth() - 16.f);
 }
 
 void WaveformView::paint (Graphics& g)
 {
     auto b = getLocalBounds().toFloat();
-    g.setColour (Colour (0xff0d0c16));
-    g.fillRoundedRectangle (b, 8.f);
 
     if (dragOver)
     {
-        g.setColour (ui::accent2.withAlpha (0.18f));
-        g.fillRoundedRectangle (b, 8.f);
-        g.setColour (ui::accent2);
-        g.drawRoundedRectangle (b.reduced (1.f), 8.f, 2.f);
+        g.setColour (ui::accent.withAlpha (0.07f));
+        g.fillRoundedRectangle (b, 4.f);
     }
+    g.setColour (dragOver ? ui::accent : ui::white (0.14f));
+    g.drawRoundedRectangle (b.reduced (0.5f), 4.f, 1.f);
 
     auto s = proc.getSample();
     if (s == nullptr)
     {
-        g.setColour (ui::dim);
-        g.setFont (17.f);
-        g.drawText ("Drop a one-shot here   -   or press LOAD SOUND", b, Justification::centred);
+        g.setColour (ui::white (0.4f));
+        g.setFont (ui::font (12.f, 0.25f));
+        g.drawText ("DROP A ONE-SHOT HERE     /     LOAD SOUND", b, Justification::centred);
         return;
     }
 
-    const float mid = b.getCentreY() + 4.f;
-    const float half = b.getHeight() * 0.38f;
+    const float mid = b.getCentreY();
+    const float half = b.getHeight() * 0.40f;
     const float x0 = normToX (0.f), x1 = normToX (1.f);
     const int cols = (int) s->peakMax.size();
+    const int W = (int) (x1 - x0);
 
-    Path p;
-    for (int i = 0; i <= (int) (x1 - x0); ++i)
-    {
-        const int c = jlimit (0, cols - 1, (int) ((float) i / (x1 - x0) * (float) cols));
-        const float y = mid - s->peakMax[(size_t) c] * half;
-        if (i == 0) p.startNewSubPath (x0, y); else p.lineTo (x0 + (float) i, y);
-    }
-    for (int i = (int) (x1 - x0); i >= 0; --i)
-    {
-        const int c = jlimit (0, cols - 1, (int) ((float) i / (x1 - x0) * (float) cols));
-        p.lineTo (x0 + (float) i, mid - s->peakMin[(size_t) c] * half);
-    }
-    p.closeSubPath();
+    g.setColour (ui::white (0.08f));
+    g.drawHorizontalLine ((int) mid, x0, x1);
 
-    g.setGradientFill (ColourGradient (ui::accent.withAlpha (0.95f), 0.f, b.getY(),
-                                       ui::accent2.withAlpha (0.55f), 0.f, b.getBottom(), false));
-    g.fillPath (p);
+    g.setColour (ui::white (0.85f));
+    for (int px = 0; px < W; px += 2)
+    {
+        const int c = jlimit (0, cols - 1, (int) ((float) px / (float) W * (float) cols));
+        const float y1 = mid - s->peakMax[(size_t) c] * half;
+        const float y2 = mid - s->peakMin[(size_t) c] * half;
+        g.fillRect (x0 + (float) px, y1, 1.f, jmax (1.f, y2 - y1));
+    }
 
     const float sx = normToX (startP->getValue()), ex = normToX (endP->getValue());
-    g.setColour (Colours::black.withAlpha (0.6f));
-    g.fillRect (x0, b.getY(), jmax (0.f, sx - x0), b.getHeight());
-    g.fillRect (ex, b.getY(), jmax (0.f, x1 - ex), b.getHeight());
+    g.setColour (Colours::black.withAlpha (0.72f));
+    g.fillRect (x0, b.getY() + 1.f, jmax (0.f, sx - x0), b.getHeight() - 2.f);
+    g.fillRect (ex, b.getY() + 1.f, jmax (0.f, x1 - ex), b.getHeight() - 2.f);
 
-    g.setColour (ui::accent2);
-    g.drawLine (sx, b.getY(), sx, b.getBottom(), 2.f);
-    g.drawLine (ex, b.getY(), ex, b.getBottom(), 2.f);
-    g.fillRect (sx, b.getY(), 36.f, 14.f);
-    g.fillRect (ex - 30.f, b.getY(), 30.f, 14.f);
-    g.setColour (Colours::black);
-    g.setFont (10.f);
-    g.drawText ("START", Rectangle<float> (sx, b.getY(), 36.f, 14.f), Justification::centred);
-    g.drawText ("END", Rectangle<float> (ex - 30.f, b.getY(), 30.f, 14.f), Justification::centred);
+    g.setColour (ui::accent);
+    g.drawLine (sx, b.getY() + 1.f, sx, b.getBottom() - 1.f, 1.2f);
+    g.drawLine (ex, b.getY() + 1.f, ex, b.getBottom() - 1.f, 1.2f);
+    g.setFont (ui::font (9.f, 0.2f));
+    g.drawText ("START", Rectangle<float> (sx + 4.f, b.getY() + 4.f, 44.f, 12.f), Justification::centredLeft);
+    g.drawText ("END", Rectangle<float> (ex - 48.f, b.getY() + 4.f, 44.f, 12.f), Justification::centredRight);
 
-    g.setColour (ui::text);
-    g.setFont (12.5f);
-    g.drawText (s->info, b.reduced (12.f, 4.f), Justification::bottomLeft);
-    g.setColour (ui::dim);
-    g.drawText (s->name, b.reduced (12.f, 4.f), Justification::bottomRight);
+    g.setColour (ui::white (0.5f));
+    g.setFont (ui::font (10.f, 0.05f));
+    g.drawText (s->info, b.reduced (12.f, 6.f), Justification::bottomLeft);
+    g.setColour (ui::white (0.35f));
+    g.drawText (s->name, b.reduced (12.f, 6.f), Justification::bottomRight);
 }
 
 void WaveformView::mouseDown (const MouseEvent& e)
@@ -298,7 +343,7 @@ void WaveformView::mouseDown (const MouseEvent& e)
 void WaveformView::mouseDrag (const MouseEvent& e)
 {
     if (dragging == 0) return;
-    const float n = jlimit (0.f, 1.f, (e.position.x - 6.f) / ((float) getWidth() - 12.f));
+    const float n = jlimit (0.f, 1.f, (e.position.x - 8.f) / ((float) getWidth() - 16.f));
 
     if (dragging == 1) startP->setValueNotifyingHost (jmin (n, endP->getValue() - 0.01f));
     else               endP->setValueNotifyingHost (jmax (n, startP->getValue() + 0.01f));
@@ -317,49 +362,70 @@ StepColumn::StepColumn (AudioProcessorValueTreeState& a, int index)
       aOn (a, stepId (index, "on"), on),
       aPit (a, stepId (index, "pit"), pit),
       aVel (a, stepId (index, "vel"), vel),
-      aProb (a, stepId (index, "prob"), prob)
+      aGate (a, stepId (index, "gate"), gate),
+      aProb (a, stepId (index, "prob"), prob),
+      aRat (a, stepId (index, "rat"), rat)
 {
     addAndMakeVisible (on);
-    for (auto* s : { &pit, &vel, &prob })
+    for (auto* s : { &pit, &vel, &gate, &prob, &rat })
     {
         addAndMakeVisible (s);
         s->setPopupDisplayEnabled (true, true, nullptr);
     }
+    pit.getProperties().set ("accent", true);
     pit.setDoubleClickReturnValue (true, 0.0);
     vel.setDoubleClickReturnValue (true, 0.85);
+    gate.setDoubleClickReturnValue (true, 1.0);
     prob.setDoubleClickReturnValue (true, 1.0);
+    rat.setDoubleClickReturnValue (true, 1.0);
 }
 
 void StepColumn::resized()
 {
-    auto b = getLocalBounds().reduced (6, 0);
-    on.setBounds (b.removeFromTop (22));   b.removeFromTop (4);
-    pit.setBounds (b.removeFromTop (72));  b.removeFromTop (4);
-    vel.setBounds (b.removeFromTop (46));  b.removeFromTop (4);
-    prob.setBounds (b.removeFromTop (34));
+    const auto b = getLocalBounds().reduced (8, 0);
+    on.setBounds (b.getCentreX() - 12, ui::rowTop (0), 24, ui::kRowH[0]);
+
+    Slider* rows[] = { nullptr, &pit, &vel, &gate, &prob, &rat };
+    for (int l = 1; l < ui::kLanes; ++l)
+        rows[l]->setBounds (b.getX(), ui::rowTop (l), b.getWidth(), ui::kRowH[l]);
+}
+
+void StepColumn::setState (int play, int dim)
+{
+    if (play == playMask && dim == dimMask) return;
+    playMask = play;
+    dimMask = dim;
+
+    Component* rows[] = { &on, &pit, &vel, &gate, &prob, &rat };
+    for (int l = 0; l < ui::kLanes; ++l)
+        rows[l]->setAlpha (((dimMask >> l) & 1) ? 0.25f : 1.f);
+    repaint();
 }
 
 void StepColumn::paint (Graphics& g)
 {
-    auto b = getLocalBounds().toFloat().reduced (1.f, 0.f);
-    if ((idx / 4) % 2 == 0)
+    const auto b = getLocalBounds();
+
+    if (idx % 4 == 0 && idx > 0)
     {
-        g.setColour (ui::panel2.withAlpha (0.55f));
-        g.fillRoundedRectangle (b, 5.f);
-    }
-    if (playing)
-    {
-        g.setColour (ui::accent2);
-        g.drawRoundedRectangle (b.reduced (0.5f), 5.f, 1.6f);
+        g.setColour (ui::white (0.07f));
+        g.drawVerticalLine (0, 0.f, (float) ui::kRowsEnd);
     }
 
-    g.setColour (playing ? ui::accent2 : ui::dim);
-    g.setFont (11.f);
-    g.drawText (String (idx + 1), getLocalBounds().removeFromBottom (14), Justification::centred);
+    for (int l = 0; l < ui::kLanes; ++l)
+        if ((playMask >> l) & 1)
+        {
+            g.setColour (ui::accent);
+            g.fillRect (b.getX() + 14, ui::rowTop (l) - 3, b.getWidth() - 28, 2);
+        }
+
+    g.setColour (ui::white ((playMask & 1) ? 0.95f : 0.3f));
+    g.setFont (ui::font (9.f, 0.05f));
+    g.drawText (String (idx + 1), b.getX(), ui::kRowsEnd + 2, b.getWidth(), 12, Justification::centred);
 }
 
 //==============================================================================
-DarkArpEditor::DarkArpEditor (DarkArpProcessor& p)
+RiverrEditor::RiverrEditor (RiverrProcessor& p)
     : AudioProcessorEditor (&p), proc (p), wave (p)
 {
     setLookAndFeel (&laf);
@@ -367,9 +433,8 @@ DarkArpEditor::DarkArpEditor (DarkArpProcessor& p)
 
     addAndMakeVisible (wave);
 
-    // header
     addAndMakeVisible (presetBox);
-    presetBox.setTextWhenNothingSelected ("Presets");
+    presetBox.setTextWhenNothingSelected ("PRESETS");
     presetBox.onChange = [this]
     {
         const auto name = presetBox.getText();
@@ -384,80 +449,107 @@ DarkArpEditor::DarkArpEditor (DarkArpProcessor& p)
     refreshPresets();
 
     // arp row
-    arpRow.push_back ({ make<Pad> (A, "arpOn", "ARP ON"), 84 });
-    arpRow.push_back ({ make<Combo> (A, "dir", "DIRECTION"), 120 });
-    arpRow.push_back ({ make<Combo> (A, "octRange", "OCTAVES"), 84 });
-    arpRow.push_back ({ make<Combo> (A, "rate", "RATE"), 96 });
-    arpRow.push_back ({ make<Knob> (A, "steps", "STEPS"), 84 });
-    arpRow.push_back ({ make<Knob> (A, "gate", "GATE"), 84 });
-    arpRow.push_back ({ make<Knob> (A, "swing", "SWING"), 84 });
-    arpRow.push_back ({ make<Knob> (A, "humT", "HUMANIZE TIME"), 100 });
-    arpRow.push_back ({ make<Knob> (A, "humV", "HUMANIZE VEL"), 100 });
-    arpRow.push_back ({ &randBtn, 120 });
+    arpRow.push_back ({ make<Pad> (A, "arpOn", "ARP"), 56 });
+    arpRow.push_back ({ make<Combo> (A, "dir", "DIRECTION"), 96 });
+    arpRow.push_back ({ make<Combo> (A, "octRange", "OCTAVES"), 62 });
+    arpRow.push_back ({ make<Combo> (A, "rate", "RATE"), 70 });
+    arpRow.push_back ({ make<Combo> (A, "key", "KEY"), 54 });
+    arpRow.push_back ({ make<Combo> (A, "scale", "SCALE"), 116 });
+    arpRow.push_back ({ make<Knob> (A, "gate", "GATE"), 54 });
+    arpRow.push_back ({ make<Knob> (A, "swing", "SWING"), 54 });
+    arpRow.push_back ({ make<Knob> (A, "humT", "HUM T"), 54 });
+    arpRow.push_back ({ make<Knob> (A, "humV", "HUM V"), 54 });
+    arpRow.push_back ({ make<Knob> (A, "evolve", "EVOLVE"), 54 });
+    arpRow.push_back ({ make<Knob> (A, "jump", "JUMP"), 54 });
+    arpRow.push_back ({ make<Combo> (A, "layer", "LAYER"), 66 });
+    arpRow.push_back ({ make<Knob> (A, "layerLvl", "LVL"), 54 });
+    arpRow.push_back ({ &randBtn, 100 });
 
-    // step sequencer
+    // sequencer
     for (int i = 0; i < 16; ++i)
     {
         steps.push_back (std::make_unique<StepColumn> (A, i));
         addAndMakeVisible (*steps.back());
     }
+    for (const char* id : { "steps", "lenPit", "lenVel", "lenGate", "lenProb", "lenRat" })
+    {
+        lenBoxes.push_back (std::make_unique<LenBox> (A, id));
+        addAndMakeVisible (*lenBoxes.back());
+    }
 
     // sound row
-    soundRow.push_back ({ make<Knob> (A, "octave", "OCTAVE"), 58 });
-    soundRow.push_back ({ make<Knob> (A, "tune", "TUNE", "st"), 58 });
-    soundRow.push_back ({ make<Pad> (A, "autotune", "AUTO C5"), 62 });
-    soundRow.push_back ({ make<Pad> (A, "reverse", "REVERSE"), 62 });
-    soundRow.push_back ({ make<Knob> (A, "atk", "ATTACK", "s"), 58 });
-    soundRow.push_back ({ make<Knob> (A, "dec", "DECAY", "s"), 58 });
-    soundRow.push_back ({ make<Knob> (A, "sus", "SUSTAIN"), 58 });
-    soundRow.push_back ({ make<Knob> (A, "rel", "RELEASE", "s"), 58 });
-    soundRow.push_back ({ make<Knob> (A, "gain", "GAIN", "dB"), 58 });
+    soundRow.push_back ({ make<Knob> (A, "octave", "OCTAVE"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "tune", "TUNE", "st"), 50 });
+    soundRow.push_back ({ make<Pad> (A, "autotune", "AUTO C5"), 60 });
+    soundRow.push_back ({ make<Pad> (A, "reverse", "REVERSE"), 60 });
+    soundRow.push_back ({ make<Knob> (A, "scan", "SCAN"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "drift", "DRIFT"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "spread", "SPREAD"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "atk", "ATTACK", "s"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "dec", "DECAY", "s"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "sus", "SUSTAIN"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "rel", "RELEASE", "s"), 50 });
+    soundRow.push_back ({ make<Knob> (A, "gain", "GAIN", "dB"), 50 });
 
     // fx row
-    fxRow.push_back ({ make<Knob> (A, "cut", "CUTOFF", "Hz"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "res", "RESO"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "lfoRate", "LFO RATE", "Hz"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "lfoDepth", "LFO DEPTH"), 56 });
-    fxRow.push_back ({ make<Combo> (A, "dlyTime", "DELAY"), 72 });
-    fxRow.push_back ({ make<Knob> (A, "dlyFb", "FEEDBACK"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "dlyMix", "DLY MIX"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "revSize", "REV SIZE"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "revDamp", "REV DAMP"), 56 });
-    fxRow.push_back ({ make<Knob> (A, "revMix", "REV MIX"), 56 });
+    fxRow.push_back ({ make<Knob> (A, "cut", "CUTOFF", "Hz"), 54 });
+    fxRow.push_back ({ make<Knob> (A, "res", "RESO"), 50 });
+    fxRow.push_back ({ make<Knob> (A, "lfoRate", "LFO HZ", "Hz"), 54 });
+    fxRow.push_back ({ make<Knob> (A, "lfoDepth", "LFO AMT"), 54 });
+    fxRow.push_back ({ make<Combo> (A, "dlyTime", "DELAY"), 64 });
+    fxRow.push_back ({ make<Knob> (A, "dlyFb", "FDBK"), 50 });
+    fxRow.push_back ({ make<Knob> (A, "dlyMix", "DLY"), 50 });
+    fxRow.push_back ({ make<Knob> (A, "revSize", "SIZE"), 50 });
+    fxRow.push_back ({ make<Knob> (A, "revDamp", "DAMP"), 50 });
+    fxRow.push_back ({ make<Knob> (A, "revMix", "REVERB"), 50 });
 
     proc.addChangeListener (this);
     startTimerHz (30);
     setSize (kW, kH);
 }
 
-DarkArpEditor::~DarkArpEditor()
+RiverrEditor::~RiverrEditor()
 {
     stopTimer();
     proc.removeChangeListener (this);
     setLookAndFeel (nullptr);
 }
 
-void DarkArpEditor::changeListenerCallback (ChangeBroadcaster*)
+void RiverrEditor::changeListenerCallback (ChangeBroadcaster*)
 {
     wave.repaint();
 }
 
-void DarkArpEditor::timerCallback()
+void RiverrEditor::timerCallback()
 {
-    const int cur = proc.currentStep.load();
+    int ls[ui::kLanes], len[ui::kLanes];
+    for (int l = 0; l < ui::kLanes; ++l)
+    {
+        ls[l] = proc.laneStep[(size_t) l].load();
+        len[l] = proc.getLaneLength (l);
+    }
+
     for (int i = 0; i < (int) steps.size(); ++i)
-        steps[(size_t) i]->setPlaying (i == cur);
+    {
+        int play = 0, dim = 0;
+        for (int l = 0; l < ui::kLanes; ++l)
+        {
+            if (ls[l] == i) play |= 1 << l;
+            if (i >= len[l]) dim |= 1 << l;
+        }
+        steps[(size_t) i]->setState (play, dim);
+    }
 }
 
 //==============================================================================
-bool DarkArpEditor::isInterestedInFileDrag (const StringArray& files)
+bool RiverrEditor::isInterestedInFileDrag (const StringArray& files)
 {
     for (auto& f : files)
         if (isAudioFile (f)) return true;
     return false;
 }
 
-void DarkArpEditor::filesDropped (const StringArray& files, int, int)
+void RiverrEditor::filesDropped (const StringArray& files, int, int)
 {
     wave.setDragOver (false);
     for (auto& f : files)
@@ -465,10 +557,10 @@ void DarkArpEditor::filesDropped (const StringArray& files, int, int)
             break;
 }
 
-void DarkArpEditor::openFileChooser()
+void RiverrEditor::openFileChooser()
 {
     chooser = std::make_unique<FileChooser> ("Choose a one-shot", File(), "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg");
-    Component::SafePointer<DarkArpEditor> safe (this);
+    Component::SafePointer<RiverrEditor> safe (this);
     chooser->launchAsync (FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
                           [safe] (const FileChooser& fc)
                           {
@@ -478,7 +570,7 @@ void DarkArpEditor::openFileChooser()
                           });
 }
 
-void DarkArpEditor::refreshPresets (const String& select)
+void RiverrEditor::refreshPresets (const String& select)
 {
     presetBox.clear (dontSendNotification);
     presetBox.addItemList (proc.listPresets(), 1);
@@ -486,14 +578,14 @@ void DarkArpEditor::refreshPresets (const String& select)
         presetBox.setText (select, dontSendNotification);
 }
 
-void DarkArpEditor::savePresetDialog()
+void RiverrEditor::savePresetDialog()
 {
     auto* w = new AlertWindow ("Save preset", "Preset name:", MessageBoxIconType::NoIcon);
     w->addTextEditor ("name", presetBox.getText().isEmpty() ? String ("My Preset") : presetBox.getText());
     w->addButton ("Save", 1, KeyPress (KeyPress::returnKey));
     w->addButton ("Cancel", 0, KeyPress (KeyPress::escapeKey));
 
-    Component::SafePointer<DarkArpEditor> safe (this);
+    Component::SafePointer<RiverrEditor> safe (this);
     w->enterModalState (true,
                         ModalCallbackFunction::create ([safe, w] (int result)
                         {
@@ -506,90 +598,92 @@ void DarkArpEditor::savePresetDialog()
 }
 
 //==============================================================================
-void DarkArpEditor::paint (Graphics& g)
+void RiverrEditor::paint (Graphics& g)
 {
-    g.setGradientFill (ColourGradient (Colour (0xff0b0a13), 0.f, 0.f, Colour (0xff141021), 0.f, (float) getHeight(), false));
-    g.fillAll();
+    g.fillAll (Colours::black);
 
-    g.setColour (ui::accent);
-    g.setFont (Font (FontOptions (24.f, Font::bold)));
-    g.drawText ("DARK ARP", 16, 10, 200, 30, Justification::centredLeft);
-    g.setColour (ui::dim);
-    g.setFont (11.f);
-    g.drawText ("one-shot arp sampler", 132, 18, 160, 16, Justification::centredLeft);
+    g.setColour (Colours::white);
+    g.setFont (Font (FontOptions (22.f)).withExtraKerningFactor (0.5f));
+    g.drawText ("RIVERR", 16, 10, 220, 28, Justification::centredLeft);
+    g.setColour (ui::white (0.35f));
+    g.setFont (ui::font (9.f, 0.25f));
+    g.drawText ("ARP SAMPLER", 17, 38, 200, 12, Justification::centredLeft);
 
-    auto panel = [&] (Rectangle<int> r, const String& title)
+    auto section = [&] (int x, int y, int w, const String& t)
     {
-        g.setColour (ui::panel);
-        g.fillRoundedRectangle (r.toFloat(), 10.f);
-        g.setColour (ui::dim);
-        g.setFont (11.f);
-        g.drawText (title, r.getX() + 14, r.getY() + 6, 900, 14, Justification::centredLeft);
+        g.setColour (ui::white (0.5f));
+        g.setFont (ui::font (9.5f, 0.3f));
+        g.drawText (t, x, y, 120, 12, Justification::centredLeft);
+        g.setColour (ui::white (0.10f));
+        g.drawHorizontalLine (y + 6, (float) (x + 82), (float) (x + w));
     };
 
-    panel (arpPanel, "ARP");
-    panel (stepPanel, "STEP SEQUENCER   -   pitch (semitones)  /  velocity  /  probability   -   double-click resets");
-    panel (soundPanel, "SOUND");
-    panel (fxPanel, "FX");
+    section (16, yArp, contentW, "ARP");
+    section (16, ySeq, contentW, "SEQUENCE");
+    section (16, ySound, fxX - 16 - 12, "SOUND");
+    section (fxX, ySound, contentW - (fxX - 16), "FX");
 
-    g.setColour (ui::dim);
-    g.setFont (10.5f);
-    const int y0 = stepPanel.getY() + 24;
-    g.drawText ("ON",    stepPanel.getX() + 8, y0,       44, 22, Justification::centredLeft);
-    g.drawText ("PITCH", stepPanel.getX() + 8, y0 + 26,  44, 72, Justification::centredLeft);
-    g.drawText ("VEL",   stepPanel.getX() + 8, y0 + 102, 44, 46, Justification::centredLeft);
-    g.drawText ("PROB",  stepPanel.getX() + 8, y0 + 152, 44, 34, Justification::centredLeft);
+    static const char* names[] = { "ON", "PITCH", "VEL", "GATE", "PROB", "RATCH" };
+    g.setColour (ui::white (0.5f));
+    g.setFont (ui::font (9.5f, 0.15f));
+    for (int l = 0; l < ui::kLanes; ++l)
+        g.drawText (names[l], 16, lanesTop + ui::rowTop (l), 46, ui::kRowH[l], Justification::centredLeft);
 }
 
-void DarkArpEditor::resized()
+void RiverrEditor::resized()
 {
-    auto r = getLocalBounds().reduced (16, 10);
+    auto r = getLocalBounds().reduced (16, 12);
+    contentW = r.getWidth();
 
-    // header
-    auto head = r.removeFromTop (34);
-    head.removeFromLeft (300);
-    presetBox.setBounds (head.removeFromLeft (230).reduced (0, 3));
-    head.removeFromLeft (6);
-    saveBtn.setBounds (head.removeFromLeft (70).reduced (0, 3));
-    loadBtn.setBounds (head.removeFromRight (120).reduced (0, 3));
+    auto head = r.removeFromTop (36);
+    head.removeFromLeft (250);
+    presetBox.setBounds (head.removeFromLeft (220).reduced (0, 6));
+    head.removeFromLeft (10);
+    saveBtn.setBounds (head.removeFromLeft (64).reduced (0, 5));
+    loadBtn.setBounds (head.removeFromRight (110).reduced (0, 5));
     r.removeFromTop (8);
 
-    wave.setBounds (r.removeFromTop (140));
-    r.removeFromTop (8);
+    wave.setBounds (r.removeFromTop (134));
+    r.removeFromTop (12);
 
     auto placeRow = [] (Rectangle<int> area, const std::vector<std::pair<Component*, int>>& row, int gap)
     {
-        int x = area.getX() + 6;
+        int x = area.getX();
         for (auto& [c, w] : row)
         {
-            if (dynamic_cast<Pad*> (c) != nullptr || dynamic_cast<TextButton*> (c) != nullptr)
-                c->setBounds (x, area.getY() + 20, w, 32);
+            if (dynamic_cast<ToggleButton*> (c) != nullptr || dynamic_cast<TextButton*> (c) != nullptr)
+                c->setBounds (x, area.getY() + 20, w, 27);
             else if (dynamic_cast<Combo*> (c) != nullptr)
-                c->setBounds (x, area.getY() + 8, w, 52);
+                c->setBounds (x, area.getY(), w, 46);
             else
                 c->setBounds (x, area.getY(), w, area.getHeight());
             x += w + gap;
         }
     };
 
-    arpPanel = r.removeFromTop (112);
-    placeRow (arpPanel.reduced (10, 0).withTrimmedTop (26).withTrimmedBottom (6), arpRow, 10);
-    r.removeFromTop (8);
+    yArp = r.getY();
+    r.removeFromTop (20);
+    placeRow (r.removeFromTop (84), arpRow, 8);
+    r.removeFromTop (12);
 
-    stepPanel = r.removeFromTop (232);
-    {
-        auto area = stepPanel.reduced (10, 0).withTrimmedTop (24).withTrimmedBottom (8);
-        area.removeFromLeft (46);
-        const int cw = area.getWidth() / 16;
-        for (int i = 0; i < 16; ++i)
-            steps[(size_t) i]->setBounds (area.getX() + i * cw, area.getY(), cw, area.getHeight());
-    }
-    r.removeFromTop (8);
+    ySeq = r.getY();
+    r.removeFromTop (20);
+    auto seq = r.removeFromTop (ui::kColH);
+    lanesTop = seq.getY();
+    seq.removeFromLeft (92);
+    const int cw = seq.getWidth() / 16;
+    for (int i = 0; i < 16; ++i)
+        steps[(size_t) i]->setBounds (seq.getX() + i * cw, lanesTop, cw, ui::kColH);
+    for (int l = 0; l < ui::kLanes; ++l)
+        lenBoxes[(size_t) l]->setBounds (16 + 48, lanesTop + ui::rowTop (l) + (ui::kRowH[l] - 16) / 2, 36, 16);
+    r.removeFromTop (12);
 
-    auto bottom = r.removeFromTop (112);
-    soundPanel = bottom.removeFromLeft (bottom.getWidth() * 48 / 100);
-    bottom.removeFromLeft (8);
-    fxPanel = bottom;
-    placeRow (soundPanel.reduced (10, 0).withTrimmedTop (26).withTrimmedBottom (6), soundRow, 4);
-    placeRow (fxPanel.reduced (10, 0).withTrimmedTop (26).withTrimmedBottom (6), fxRow, 4);
+    ySound = r.getY();
+    r.removeFromTop (20);
+    auto bottom = r.removeFromTop (84);
+    auto soundArea = bottom.removeFromLeft (662);
+    bottom.removeFromLeft (14);
+    fxX = bottom.getX();
+    placeRow (soundArea, soundRow, 2);
+    placeRow (bottom, fxRow, 2);
 }

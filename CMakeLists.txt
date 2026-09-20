@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(DarkArp VERSION 0.1.0)
+project(RIVERR VERSION 0.2.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,15 +12,15 @@ FetchContent_Declare(JUCE
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(DarkArp
-    COMPANY_NAME "DarkArp"
+    COMPANY_NAME "RIVERR"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
-    PLUGIN_MANUFACTURER_CODE Dkap
-    PLUGIN_CODE Dka1
+    PLUGIN_MANUFACTURER_CODE Rivr
+    PLUGIN_CODE Rvr1
     FORMATS VST3
-    PRODUCT_NAME "DarkArp")
+    PRODUCT_NAME "RIVERR")
 
 juce_generate_juce_header(DarkArp)
 
